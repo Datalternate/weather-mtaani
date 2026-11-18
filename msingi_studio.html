@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Msingi Transcribe</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#16181d;--muted:#6b7280;--line:#e3e6eb;--accent:#0b6e4f;--accent2:#e8f5f0;--danger:#c62828;--dangerbg:#fdecec}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1114;--card:#181b20;--text:#eceff4;--muted:#98a1b0;--line:#2a2f37;--accent:#3ecf9b;--accent2:#14302a;--danger:#ff8a80;--dangerbg:#3a1d1d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.5}
+.wrap{max-width:680px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:24px;margin:0 0 4px} .sub{color:var(--muted);margin:0 0 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.row{display:flex;gap:8px}
+input[type=text],input[type=password]{flex:1;width:100%;padding:10px 12px;font-size:15px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--text)}
+button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--text);padding:9px 14px}
+button.primary{background:var(--accent);color:#fff;border-color:transparent;font-weight:600}
+@media (prefers-color-scheme:dark){button.primary{color:#07130e}}
+button:disabled{opacity:.5;cursor:not-allowed}
+.check{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-top:8px}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;transition:.15s}
+.drop.over{border-color:var(--accent);background:var(--accent2)}
+.drop b{display:block;font-size:16px;margin-bottom:2px} .drop span{color:var(--muted);font-size:14px}
+.or{text-align:center;color:var(--muted);font-size:13px;margin:12px 0}
+#rec{width:100%;padding:12px;font-size:16px}
+#rec.on{background:var(--danger);color:#fff;border-color:transparent}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:currentColor;margin-right:8px}
+#rec.on .dot{animation:p 1s infinite} @keyframes p{50%{opacity:.25}}
+#sel{display:none;align-items:center;gap:10px;margin-top:14px;padding:10px;background:var(--bg);border-radius:10px}
+#sel audio{flex:1;height:36px;min-width:0} #selname{font-size:13px;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#go{width:100%;margin-top:14px;padding:12px;font-size:16px}
+.err{display:none;background:var(--dangerbg);color:var(--danger);padding:12px 14px;border-radius:10px;font-size:14px;white-space:pre-wrap;margin-bottom:16px}
+.hint{color:var(--muted);font-size:13px;margin-top:6px}
+#out{white-space:pre-wrap;font-size:17px;min-height:70px}
+.empty{color:var(--muted)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes s{to{transform:rotate(360deg)}}
+details summary{cursor:pointer;font-weight:600;font-size:14px}
+details .row{margin-top:12px;flex-direction:column;gap:12px}
+.bar{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+</style></head><body><div class="wrap">
+<h1>Msingi Transcribe</h1>
+<p class="sub">Speech to text, in your browser.</p>
+
+<div class="card">
+  <label for="key">API key</label>
+  <div class="row"><input type="password" id="key" placeholder="msk_..." autocomplete="off">
+    <button id="eye" type="button">Show</button></div>
+  <label class="check"><input type="checkbox" id="remember"> Remember on this device</label>
+</div>
+
+<div id="err" class="err"></div>
+
+<div class="card">
+  <div class="drop" id="drop"><b>Drop an audio file here</b><span>or click to browse (mp3, wav, m4a, webm...)</span>
+    <input type="file" id="file" accept="audio/*,video/*" hidden></div>
+  <div class="or">or</div>
+  <button id="rec"><span class="dot"></span><span id="rectext">Record from microphone</span></button>
+  <div class="hint" id="michint"></div>
+  <div id="sel"><span id="selname"></span><audio id="player" controls></audio></div>
+  <button class="primary" id="go" disabled>Transcribe</button>
+</div>
+
+<div class="card">
+  <label>Transcript</label>
+  <div id="out" class="empty">Your transcript will appear here.</div>
+  <div class="bar"><button id="copy" disabled>Copy</button><button id="dl" disabled>Download .txt</button></div>
+</div>
+
+<div class="card"><details><summary>Advanced settings</summary>
+  <div class="row">
+    <div><label for="url">Endpoint</label><input type="text" id="url" value="https://api.msingiai.com/v1/audio/transcriptions"></div>
+    <div><label for="field">Upload field name</label><input type="text" id="field" value="file"></div>
+    <div><label for="lang">Language code (optional, e.g. sw)</label><input type="text" id="lang" placeholder="leave empty for auto"></div>
+  </div>
+  <div class="hint">If you get a 404 or 422, check these against Msingi's docs.</div>
+</details></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let audioBlob = null, audioName = "", recorder = null, timer = null, lastText = "";
+
+// --- key storage (optional) ---
+try { const k = localStorage.getItem("msingi_key"); if (k) { $("key").value = k; $("remember").checked = true; } } catch {}
+$("eye").onclick = () => { const p = $("key").type === "password"; $("key").type = p ? "text" : "password"; $("eye").textContent = p ? "Hide" : "Show"; };
+
+function showErr(m) { const e = $("err"); e.textContent = m; e.style.display = m ? "block" : "none"; }
+
+// --- choose audio ---
+function setAudio(blob, name) {
+  audioBlob = blob; audioName = name; showErr("");
+  $("player").src = URL.createObjectURL(blob); $("selname").textContent = name;
+  $("sel").style.display = "flex"; $("go").disabled = false;
+}
+$("drop").onclick = () => $("file").click();
+$("file").onchange = e => { const f = e.target.files[0]; if (f) setAudio(f, f.name); };
+["dragover", "dragenter"].forEach(ev => $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("over"); }));
+$("drop").addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) setAudio(f, f.name); });
+
+// --- microphone ---
+if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+  $("rec").disabled = true;
+  $("michint").textContent = "Recording isn't available here. Upload a file instead, or open this page in Chrome as a normal tab.";
+}
+$("rec").onclick = async () => {
+  if (recorder && recorder.state === "recording") { recorder.stop(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    const chunks = []; recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+    recorder.onstop = () => {
+      clearInterval(timer); stream.getTracks().forEach(t => t.stop());
+      $("rec").classList.remove("on"); $("rectext").textContent = "Record from microphone";
+      const type = recorder.mimeType || "audio/webm";
+      setAudio(new Blob(chunks, {type}), "recording." + (type.includes("mp4") ? "m4a" : "webm"));
+    };
+    recorder.start(); let s = 0;
+    $("rec").classList.add("on"); $("rectext").textContent = "Stop recording (0:00)";
+    timer = setInterval(() => { s++; $("rectext").textContent = `Stop recording (${Math.floor(s/60)}:${String(s%60).padStart(2,"0")})`; }, 1000);
+  } catch (e) {
+    showErr("Couldn't use the microphone (" + e.name + ").\nThis usually means the page is inside a preview or chat window, or mic permission is blocked.\nUpload an audio file instead, or open this file in Chrome as a normal tab.");
+  }
+};
+
+// --- transcribe ---
+$("go").onclick = async () => {
+  const key = $("key").value.trim();
+  if (!key) return showErr("Paste your API key first.");
+  try { $("remember").checked ? localStorage.setItem("msingi_key", key) : localStorage.removeItem("msingi_key"); } catch {}
+  showErr(""); $("go").disabled = true;
+  $("out").className = ""; $("out").innerHTML = '<span class="spin"></span>Transcribing...';
+  $("copy").disabled = $("dl").disabled = true;
+  const fd = new FormData(); fd.append($("field").value.trim() || "file", audioBlob, audioName);
+  if ($("lang").value.trim()) fd.append("language", $("lang").value.trim());
+  try {
+    const r = await fetch($("url").value.trim(), {method: "POST", headers: {Authorization: "Bearer " + key}, body: fd});
+    const raw = await r.text();
+    if (!r.ok) {
+      const why = {401: "Key rejected. Check it for typos or extra spaces.", 403: "Access denied. The key may not be activated yet.",
+        404: "Endpoint not found. Check the URL in Advanced settings.", 413: "File too large.", 422: "The API didn't like the request. Check the field name in Advanced settings.", 429: "Rate limited. Wait a moment and retry."}[r.status] || "";
+      throw new Error(`HTTP ${r.status}. ${why}\n\n${raw.slice(0, 500)}`);
+    }
+    let text = raw;
+    try { const j = JSON.parse(raw); text = j.text ?? j.transcript ?? j.transcription ?? JSON.stringify(j, null, 2); } catch {}
+    lastText = text; $("out").textContent = text || "(empty result)";
+    $("copy").disabled = $("dl").disabled = !text;
+  } catch (e) {
+    $("out").className = "empty"; $("out").textContent = "No transcript.";
+    showErr(e instanceof TypeError
+      ? "Couldn't reach the API. Either the URL is wrong, you're offline, or Msingi blocks direct browser calls (CORS). If it's CORS, a small local proxy is needed."
+      : e.message);
+  }
+  $("go").disabled = false;
+};
+
+$("copy").onclick = async () => { await navigator.clipboard.writeText(lastText); $("copy").textContent = "Copied"; setTimeout(() => $("copy").textContent = "Copy", 1200); };
+$("dl").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lastText], {type: "text/plain"})); a.download = "transcript.txt"; a.click(); };
+</script></div></body></html>
